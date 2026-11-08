@@ -1,2 +1,3 @@
-﻿.idea
-.vscode
+_site/
+__pycache__/
+*.pyc

@@ -1,17 +1,28 @@
 """Build a VPM listing from public, stable Toolbox GitHub releases."""
 import hashlib
+import html
 import io
 import json
 import os
 from pathlib import Path
 import re
 import urllib.request
+from urllib.parse import quote, urlsplit
 import zipfile
 
 REPOSITORY = "meowvelyn/toolbox"
 PACKAGE = "net.lynuwu.toolbox"
-LISTING_URL = "https://meowvelyn.github.io/vpm/index.json"
 SOURCE_PATH = Path(__file__).resolve().parents[1] / "source.json"
+
+
+def public_url(source):
+    url = os.environ.get("VPM_PUBLIC_URL", source.get("url", "")).strip()
+    parsed = urlsplit(url)
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username
+            or parsed.password or parsed.port or parsed.path != "/index.json"
+            or parsed.query or parsed.fragment):
+        raise ValueError("Set VPM_PUBLIC_URL to https://YOUR-HOSTNAME/index.json")
+    return url
 
 
 def fetch(url: str, *, api: bool = False) -> bytes:
@@ -73,19 +84,19 @@ def build_listing(items, downloader=fetch):
         "name": source["name"],
         "id": source["id"],
         "author": source["author"]["name"],
-        "url": source["url"],
+        "url": public_url(source),
         "packages": {PACKAGE: {"versions": versions}},
     }
 
 
 def main():
     listing = build_listing(releases())
-    output = Path(__file__).resolve().parents[1] / "_site"
+    output = SOURCE_PATH.parent / "_site"
     output.mkdir(exist_ok=True)
     (output / "index.json").write_text(
         json.dumps(listing, indent=2) + "\n", encoding="utf-8"
     )
-    (output / "index.html").write_text('''<!doctype html>
+    page = '''<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -96,12 +107,31 @@ a{color:#a9c5ff}code{overflow-wrap:anywhere}
 </style>
 <h1>Evelyn's VPM Packages</h1>
 <p>Editor tools for VRChat avatars.</p>
-<p><a href="vcc://vpm/addRepo?url=https%3A%2F%2Fmeowvelyn.github.io%2Fvpm%2Findex.json">Add to VRChat Creator Companion</a></p>
-<p>Or add this repository URL in VCC under Settings → Packages → Add Repository:</p>
-<p><code>https://meowvelyn.github.io/vpm/index.json</code></p>
-<p><a href="https://github.com/meowvelyn/toolbox">Toolbox source and documentation</a> · <a href="index.json">Package listing JSON</a></p>
+<p><a href="vcc://vpm/addRepo?url=__ENCODED_URL__">Add to VRChat Creator Companion</a></p>
+<p>Or add this repository URL in VCC under Settings &rarr; Packages &rarr; Add Repository:</p>
+<p><code>__PUBLIC_URL__</code></p>
+<p><a href="https://github.com/meowvelyn/toolbox">Toolbox source and documentation</a> &middot; <a href="index.json">Package listing JSON</a></p>
 </html>
-''', encoding="utf-8")
+'''
+    page = page.replace("__ENCODED_URL__", quote(listing["url"], safe=""))
+    page = page.replace("__PUBLIC_URL__", html.escape(listing["url"]))
+    (output / "index.html").write_text(page, encoding="utf-8")
+    (output / "_headers").write_text(
+        "/*\n  X-Content-Type-Options: nosniff\n"
+        "/index.json\n  Access-Control-Allow-Origin: *\n"
+        "  Cache-Control: public, max-age=300\n"
+        "  Content-Type: application/json; charset=utf-8\n",
+        encoding="utf-8",
+    )
+    root = SOURCE_PATH.parent
+    config = json.loads((root / "wrangler.json").read_text(encoding="utf-8"))
+    hostname = urlsplit(listing["url"]).hostname
+    config["routes"] = ([] if hostname.endswith(".workers.dev") else [
+        {"pattern": hostname, "custom_domain": True}
+    ])
+    (root / "wrangler.generated.json").write_text(
+        json.dumps(config, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"Built listing with {len(listing['packages'][PACKAGE]['versions'])} version(s)")
 
 

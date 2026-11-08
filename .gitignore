@@ -1,3 +1,6 @@
 _site/
 __pycache__/
 *.pyc
+wrangler.generated.json
+.wrangler/
+node_modules/

@@ -1,33 +1,7 @@
 import { baseLayerLuminance, StandardLuminance } from 'https://unpkg.com/@fluentui/web-components@2.6.1';
 
-const LISTING_URL = "{{ listingInfo.Url }}";
-
-const PACKAGES = {
-{{~ for package in packages ~}}
-  "{{ package.Name }}": {
-    name: "{{ package.Name }}",
-    displayName: "{{ if package.DisplayName; package.DisplayName; end; }}",
-    description: "{{ if package.Description; package.Description; end; }}",
-    version: "{{ package.Version }}",
-    author: {
-      name: "{{ if package.Author.Name; package.Author.Name; end; }}",
-      url: "{{ if package.Author.Url; package.Author.Url; end; }}",
-    },
-    dependencies: {
-      {{~ for dependency in package.Dependencies ~}}
-        "{{ dependency.Name }}": "{{ dependency.Version }}",
-      {{~ end ~}}
-    },
-    keywords: [
-      {{~ for keyword in package.Keywords ~}}
-        "{{ keyword }}",
-      {{~ end ~}}
-    ],
-    license: "{{ package.License }}",
-    licensesUrl: "{{ package.LicensesUrl }}",
-  },
-{{~ end ~}}
-};
+const LISTING_URL = __LISTING_URL_JSON__;
+const PACKAGES = __PACKAGES_JSON__;
 
 const setTheme = () => {
   const isDarkTheme = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -37,6 +11,8 @@ const setTheme = () => {
     baseLayerLuminance.setValueFor(document.documentElement, StandardLuminance.LightMode);
   }
 }
+
+await customElements.whenDefined('fluent-dialog');
 
 (() => {
   setTheme();
@@ -81,9 +57,9 @@ const setTheme = () => {
     const vccUrlField = document.getElementById('vccListingInfoUrlField');
     vccUrlField.select();
     navigator.clipboard.writeText(vccUrlField.value);
-    vccUrlFieldCopy.appearance = 'accent';
+    vccListingInfoUrlFieldCopy.appearance = 'accent';
     setTimeout(() => {
-      vccUrlFieldCopy.appearance = 'neutral';
+      vccListingInfoUrlFieldCopy.appearance = 'neutral';
     }, 1000);
   });
 
@@ -112,18 +88,17 @@ const setTheme = () => {
   rowMenuButtons.forEach(button => {
     button.addEventListener('click', e => {
       if (rowMoreMenu?.hidden) {
-        rowMoreMenu.style.top = `${e.clientY + e.target.clientHeight}px`;
+        const packageUrl = e.currentTarget.dataset.packageUrl;
+        rowMoreMenu.style.top = `${e.clientY + e.currentTarget.clientHeight + window.scrollY}px`;
         rowMoreMenu.style.left = `${e.clientX - 120}px`;
         rowMoreMenu.hidden = false;
 
         const downloadLink = rowMoreMenu.querySelector('#rowMoreMenuDownload');
         const downloadListener = () => {
-          window.open(e?.target?.dataset?.packageUrl, '_blank');
+          window.open(packageUrl, '_blank', 'noopener');
+          rowMoreMenu.hidden = true;
         }
-        downloadLink.addEventListener('change', () => {
-          downloadListener();
-          downloadLink.removeEventListener('change', downloadListener);
-        });
+        downloadLink.onclick = downloadListener;
 
         setTimeout(() => {
           document.addEventListener('click', hideRowMoreMenu);
@@ -139,10 +114,12 @@ const setTheme = () => {
   });
 
   // Fluent dialogs use nested shadow-rooted elements, so we need to use JS to style them
-  const modalControl = packageInfoModal.shadowRoot.querySelector('.control');
-  modalControl.style.maxHeight = "90%";
-  modalControl.style.transition = 'height 0.2s ease-in-out';
-  modalControl.style.overflowY = 'hidden';
+  const modalControl = packageInfoModal.shadowRoot?.querySelector('.control');
+  if (modalControl) {
+    modalControl.style.maxHeight = "90%";
+    modalControl.style.transition = 'height 0.2s ease-in-out';
+    modalControl.style.overflowY = 'hidden';
+  }
 
   const packageInfoName = document.getElementById('packageInfoName');
   const packageInfoId = document.getElementById('packageInfoId');
@@ -161,7 +138,7 @@ const setTheme = () => {
   const rowPackageInfoButton = document.querySelectorAll('.rowPackageInfoButton');
   rowPackageInfoButton.forEach((button) => {
     button.addEventListener('click', e => {
-      const packageId = e.target.dataset?.packageId;
+      const packageId = e.currentTarget.dataset?.packageId;
       const packageInfo = PACKAGES?.[packageId];
       if (!packageInfo) {
         console.error(`Did not find package ${packageId}. Packages available:`, PACKAGES);
@@ -208,7 +185,7 @@ const setTheme = () => {
 
       setTimeout(() => {
         const height = packageInfoModal.querySelector('.col').clientHeight;
-        modalControl.style.setProperty('--dialog-height', `${height + 14}px`);
+        modalControl?.style.setProperty('--dialog-height', `${height + 14}px`);
       }, 1);
     });
   });
@@ -218,9 +195,9 @@ const setTheme = () => {
     const vccUrlField = document.getElementById('packageInfoVccUrlField');
     vccUrlField.select();
     navigator.clipboard.writeText(vccUrlField.value);
-    vccUrlFieldCopy.appearance = 'accent';
+    packageInfoVccUrlFieldCopy.appearance = 'accent';
     setTimeout(() => {
-      vccUrlFieldCopy.appearance = 'neutral';
+      packageInfoVccUrlFieldCopy.appearance = 'neutral';
     }, 1000);
   });
 

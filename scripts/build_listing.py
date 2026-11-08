@@ -1,14 +1,14 @@
 """Build a VPM listing from public, stable Toolbox GitHub releases."""
 import hashlib
-import html
 import io
 import json
 import os
 from pathlib import Path
 import re
 import urllib.request
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 import zipfile
+from render_website import render_website
 
 REPOSITORY = "meowvelyn/toolbox"
 PACKAGE = "net.lynuwu.toolbox"
@@ -96,26 +96,8 @@ def main():
     (output / "index.json").write_text(
         json.dumps(listing, indent=2) + "\n", encoding="utf-8"
     )
-    page = '''<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Evelyn's VPM Packages</title>
-<style>
-body{font:18px/1.6 system-ui,sans-serif;max-width:48rem;margin:5rem auto;padding:0 1.5rem;background:#161921;color:#e9edf4}
-a{color:#a9c5ff}code{overflow-wrap:anywhere}
-</style>
-<h1>Evelyn's VPM Packages</h1>
-<p>Editor tools for VRChat avatars.</p>
-<p><a href="vcc://vpm/addRepo?url=__ENCODED_URL__">Add to VRChat Creator Companion</a></p>
-<p>Or add this repository URL in VCC under Settings &rarr; Packages &rarr; Add Repository:</p>
-<p><code>__PUBLIC_URL__</code></p>
-<p><a href="https://github.com/meowvelyn/toolbox">Toolbox source and documentation</a> &middot; <a href="index.json">Package listing JSON</a></p>
-</html>
-'''
-    page = page.replace("__ENCODED_URL__", quote(listing["url"], safe=""))
-    page = page.replace("__PUBLIC_URL__", html.escape(listing["url"]))
-    (output / "index.html").write_text(page, encoding="utf-8")
+    source = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
+    render_website(SOURCE_PATH.parent, output, listing, source)
     (output / "_headers").write_text(
         "/*\n  X-Content-Type-Options: nosniff\n"
         "/index.json\n  Access-Control-Allow-Origin: *\n"

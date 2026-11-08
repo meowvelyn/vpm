@@ -56,8 +56,11 @@ download URL and computes SHA-256. All versions are rebuilt on every run.
 A malformed stable release stops deployment and leaves the existing site intact.
 Package ZIPs continue to be hosted on GitHub Releases.
 
-The original VRChat template's `Website/` assets remain available for future
-customization; deployment uses the generator's installation page.
+The installation page uses the original VRChat listing template's Fluent UI
+layout, styling, package search, details dialog, download menu, and copy/install
+controls. Customize `Website/index.html`, `Website/styles.css`, or `Website/app.js`.
+The build renders template metadata and embeds safely serialized package data;
+no extra Python dependencies or build-command changes are required.
 
 ## Local build and deployment
 
